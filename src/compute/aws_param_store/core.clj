@@ -41,7 +41,7 @@
 
 (defn path
   [& parts]
-  (apply path* parts))
+  (path* (vec parts)))
 
 (defn parse-path
   [path]
