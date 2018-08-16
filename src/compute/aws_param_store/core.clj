@@ -50,8 +50,8 @@
         (str/split path #"/")))
 
 (s/fdef parse-path
-        :args (s/cat :path ::path)
-        :ret ::path-vec)
+        :args (s/cat :path-string string?)
+        :ret ::path)
 
 (defn parse-value
   [v]
@@ -62,7 +62,7 @@
 ;; API
 
 (defn put-parameter!
-  "Puts `value` at `path-vec` into the Parameter Store."
+  "Puts `value` at `path` into the Parameter Store."
   ([client path value] (put-parameter! client path value nil))
   ([client path value {:keys [encrypt?]}]
    (let [edn-val (pr-str value)]
@@ -82,7 +82,7 @@
                      :opts (s/? (s/nilable map?))))
 
 (defn delete-parameter!
-  "Deletes the parameter at `path-vec`."
+  "Deletes the parameter at `pathc`."
   [client path]
   (impl/delete-parameter client (path* path)))
 
@@ -91,7 +91,7 @@
                      :path ::path))
 
 (defn get-parameter
-  "Returns the parameter value at `path-vec`, `nil` if the parameter does not exist."
+  "Returns the parameter value at `path`, `nil` if the parameter does not exist."
   [client path]
   (let [{:keys [value]} (try
                           (impl/get-parameter client (path* path) {:decrypt? true})
@@ -104,7 +104,7 @@
         :ret any?)
 
 (defn get-parameters
-  "Returns a map with all key/value pairs at the specified `path-vec`."
+  "Returns a map with all key/value pairs at the specified `path`."
   [client path]
   (let [params (impl/get-parameters-by-path client (path* path) {:decrypt? true})]
     (reduce (fn [params {:keys [name value]}]
