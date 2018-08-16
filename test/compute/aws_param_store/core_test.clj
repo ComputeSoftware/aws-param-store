@@ -6,13 +6,16 @@
 
 (st/instrument)
 
-(deftest stringify-path-vec-test
-  (is (= "/a" (params/stringify-path [:a])))
-  (is (= "/a:b/c" (params/stringify-path [:a/b :c]))))
+(deftest path*-test
+  (is (= "/a" (params/path* [:a])))
+  (is (= "/a/b/c" (params/path* [:a/b :c])))
+  (is (= "/a" (params/path* ["a"])))
+  (is (= "/caa6e6dd-a8b8-4b61-bcb8-26f30bdd4f07"
+         (params/path* [#uuid"caa6e6dd-a8b8-4b61-bcb8-26f30bdd4f07"]))))
 
 (deftest parse-path-test
-  (is (= [:a] (params/parse-path "/a")))
-  (is (= [:a/b :c] (params/parse-path "/a:b/c"))))
+  (is (= ["a"] (params/parse-path "/a")))
+  (is (= ["a:b" "c"] (params/parse-path "/a:b/c"))))
 
 (deftest parse-value-test
   (is (= "{asd" (params/parse-value "{asd")))
@@ -27,7 +30,7 @@
       (params/put-parameter! client path-vec val)
       (is (= val (params/get-parameter client path-vec))))
     (testing "can get all values at path"
-      (is (= {:bar {:a :b}} (params/get-parameters client [:foo]))))
+      (is (= {"/foo/bar" val} (params/get-parameters client [:foo]))))
     (testing "Parameter is nil after deleting"
       (params/delete-parameter! client path-vec)
       (is (nil? (params/get-parameter client path-vec))))))

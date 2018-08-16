@@ -10,8 +10,8 @@
 ;; HELPERS
 
 (s/def ::client impl/client?)
-(s/def ::path-vec (s/coll-of keyword? :kind vector? :min-count 1))
-(s/def ::path string?)
+(s/def ::path (s/or :string string?
+                    :vector (s/coll-of any? :kind vector? :min-count 1)))
 
 (defn client
   [opts]
@@ -23,33 +23,31 @@
         :args (s/cat :opts (s/keys :opt-un [::profile ::region]))
         :ret ::client)
 
-(defn stringify-path
-  [path-vec]
-  (->> path-vec
-       (map (fn [kw]
-              (if (qualified-keyword? kw)
-                (str (namespace kw) ":" (name kw))
-                (name kw))))
-       (str/join "/")
-       (str "/")))
+(defn path*
+  [path]
+  (let [p (cond
+            (string? path) path
+            (vector? path) (->> path
+                                (filter identity)
+                                (map (fn [x]
+                                       (if (keyword? x)
+                                         (subs (str x) 1)
+                                         x)))
+                                (str/join "/")))]
+    ;; ensure path starts with / for consistency
+    (if (str/starts-with? p "/")
+      p
+      (str "/" p))))
 
-(s/fdef stringify-path
-        :args (s/cat :path ::path-vec)
-        :ret ::path)
-
-(defn- keyword-from-path-part
-  [path-part]
-  (let [kw-parts (str/split path-part #":" 2)]
-    (apply keyword kw-parts)))
+(defn path
+  [& parts]
+  (apply path* parts))
 
 (defn parse-path
   [path]
-  (let [path-parts (str/split path #"/")]
-    (into []
-          (comp
-            (filter (complement str/blank?))
-            (map keyword-from-path-part))
-          path-parts)))
+  (into []
+        (filter (complement str/blank?))
+        (str/split path #"/")))
 
 (s/fdef parse-path
         :args (s/cat :path ::path)
@@ -65,55 +63,55 @@
 
 (defn put-parameter!
   "Puts `value` at `path-vec` into the Parameter Store."
-  ([client path-vec value] (put-parameter! client path-vec value nil))
-  ([client path-vec value {:keys [encrypt?]}]
+  ([client path value] (put-parameter! client path value nil))
+  ([client path value {:keys [encrypt?]}]
    (let [edn-val (pr-str value)]
      (assert (<= (count edn-val) 4096) "Parameter value must be less than 4096 characters")
      (impl/put-parameter client
                          (if encrypt?
                            "SecureString"
                            "String")
-                         (stringify-path path-vec)
+                         (path* path)
                          edn-val
                          {:overwrite? true}))))
 
 (s/fdef put-parameter!
         :args (s/cat :client ::client
-                     :path ::path-vec
+                     :path ::path
                      :value any?
                      :opts (s/? (s/nilable map?))))
 
 (defn delete-parameter!
   "Deletes the parameter at `path-vec`."
-  [client path-vec]
-  (impl/delete-parameter client (stringify-path path-vec)))
+  [client path]
+  (impl/delete-parameter client (path* path)))
 
 (s/fdef delete-parameter!
         :args (s/cat :client ::client
-                     :path-vec ::path-vec))
+                     :path ::path))
 
 (defn get-parameter
   "Returns the parameter value at `path-vec`, `nil` if the parameter does not exist."
-  [client path-vec]
+  [client path]
   (let [{:keys [value]} (try
-                          (impl/get-parameter client (stringify-path path-vec) {:decrypt? true})
+                          (impl/get-parameter client (path* path) {:decrypt? true})
                           (catch ParameterNotFoundException _ nil))]
     (parse-value value)))
 
 (s/fdef get-parameter
         :args (s/cat :client ::client
-                     :path ::path-vec)
+                     :path ::path)
         :ret any?)
 
 (defn get-parameters
   "Returns a map with all key/value pairs at the specified `path-vec`."
-  [client path-vec]
-  (let [params (impl/get-parameters-by-path client (stringify-path path-vec) {:decrypt? true})]
+  [client path]
+  (let [params (impl/get-parameters-by-path client (path* path) {:decrypt? true})]
     (reduce (fn [params {:keys [name value]}]
-              (assoc params (last (parse-path name)) (parse-value value)))
+              (assoc params name (parse-value value)))
             {} params)))
 
 (s/fdef get-parameters
         :args (s/cat :client ::client
-                     :path ::path-vec)
+                     :path ::path)
         :ret map?)
