@@ -35,10 +35,10 @@
 
 (defn map-from-parameter
   [^Parameter parameter]
-  {:arn                (.getARN parameter)
-   :last-modified-date (.getLastModifiedDate parameter)
+  {#_#_:arn                (.getARN parameter)
+   #_#_:last-modified-date (.getLastModifiedDate parameter)
    :name               (.getName parameter)
-   :selector           (.getSelector parameter)
+   #_#_:selector           (.getSelector parameter)
    :type               (.getType parameter)
    :value              (.getValue parameter)
    :version            (.getVersion parameter)})
